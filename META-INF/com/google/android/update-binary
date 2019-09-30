@@ -1,0 +1,310 @@
+#!/sbin/sh
+# By FriendlyNeighborhoodShane
+# Based on work by osm0sis @ xda-developers (Thanks!)
+
+modprop="id=MinDebloat
+name=Extreme Google Systemless Debloater
+version=$(date)
+versionCode=$(date +%Y%m%d)
+author=FriendlyNeighborhoodShane
+description=A systemless debloater that debloats everything proprietary from your device
+support=https://t.me/joinchat/FyFlS0X2D7f6YNvdxhEsfw
+donate=
+minMagisk=1530
+";
+
+outfd="/proc/self/fd/$2";
+zipfile="$3";
+
+ps | grep zygote | grep -v grep >/dev/null && bootmode=true || bootmode=false;
+$bootmode || ps -A 2>/dev/null | grep zygote | grep -v grep >/dev/null && bootmode=true;
+
+$bootmode || exec 1>>$outfd;
+
+$bootmode || mount -o bind /dev/urandom /dev/random;
+
+$bootmode && ui_print() { echo "$1"; } || ui_print() { echo -e "ui_print $1\nui_print" >> $outfd; }
+
+log() { ui_print "$1"; }
+
+ui_print "                                ";
+ui_print " ===================================";
+ui_print " | MinMicroG Debloat / Restore Zip |";
+ui_print " |       By ShaneTheAwesome        |";
+ui_print " ===================================";
+modname=MinDebloat;
+
+ui_print " ";
+ui_print "Mounting...";
+case "$(basename "$zipfile")" in
+  *magisk*|*Magisk*|*MAGISK*)
+    forcemagisk=yes;
+    ui_print " ";
+    ui_print "WARNING: Forcing a Magisk action!";
+  ;;
+esac;
+$bootmode && forcemagisk=yes;
+$bootmode || { mount /data; mount /cache; }
+for bb in /magisk/.core/busybox /sbin/.core/busybox /sbin/.magisk/busybox; do
+  [ -e "$bb" ] && magiskbb="$bb";
+done;
+[ "$magiskbb" ] && export PATH="$magiskbb:$PATH";
+[ -e "/system_root" ] && {
+  mount -o ro /system_root;
+  sysroot="system_root";
+} || {
+  mount -o ro /system;
+  [ -e "/system/system/build.prop" ] && sysroot="system";
+}
+
+ui_print " ";
+ui_print "Mounting...";
+if [ -e "/data/adb/magisk" -a "$forcemagisk" == "yes" ]; then
+  $bootmode && modulesdir="/data/adb/modules_update" || modulesdir="/data/adb/modules";
+  root="$modulesdir/$modname";
+  magisk=yes;
+  log "Using $modulesdir";
+else
+  [ "$sysroot" ] && {
+    mount -o rw,remount /$sysroot;
+    mount -o rw,remount /$sysroot /$sysroot;
+  } || {
+    mount -o rw,remount /system;
+    mount -o rw,remount /system /system;
+  }
+  root="/$sysroot";
+  magisk=no;
+  log "Mounted /$sysroot/system RW";
+fi;
+
+sdk="$(grep ro.build.version.sdk "/$sysroot/system/build.prop" | head -n1 | awk '{ print $1 }' | cut -d= -f2)";
+
+backupdir="/data/media/0/$modname";
+
+remove() {
+  removalobject="$1";
+  backupobject="$2";
+  if [ "$sdk" -lt 21 ]; then
+    [ "$(basename "$(dirname "$removalobject")").apk" == "$(basename "$removalobject")" ] && {
+      removalobject="$(dirname "$(dirname "$removalobject")")/$(basename "$removalobject")";
+      backupobject="$(dirname "$(dirname "$backupobject")")/$(basename "$backupobject")";
+    }
+  fi;
+  [ "$(basename "$(dirname "$removalobject")").apk" == "$(basename "$removalobject")" ] && { removalobject="$(dirname "$removalobject")"; backupobject="$(dirname "$backupobject")"; }
+  [ -e "$removalobject" ] || return 0;
+  mkdir -p "$(dirname "$backupobject")";
+  cp -rf "$removalobject" "$backupobject";
+  [ -e "$backupobject" ] && log "BACKUPER: Object backed up ($removalobject)" || log "ERROR: Could not backup ($removalobject)";
+  rm -rf "$removalobject" || { log "ERROR: Could not remove ($removalobject)"; return 1; }
+  [ -e "$removalobject" ] && { log "ERROR: Could not remove ($removalobject)"; return 1; } || log "REMOVER: Object removed ($removalobject)";
+}
+
+debloat() {
+  debloatobject="$1";
+  debloatingobject="$2";
+  if [ "$sdk" -lt 21 ]; then
+    [ "$(basename "$(dirname "$debloatobject")").apk" == "$(basename "$debloatobject")" ] && {
+      debloatobject="$(dirname "$(dirname "$debloatobject")")/$(basename "$debloatobject")";
+      debloatingobject="$(dirname "$(dirname "$debloatingobject")")/$(basename "$debloatingobject")";
+    }
+  fi;
+  [ "$(basename "$(dirname "$debloatobject")").apk" == "$(basename "$debloatobject")" ] && debloatobject="$(dirname "$debloatobject")";
+  [ -e "$debloatobject" ] || return 0;
+  if [ "$(basename "$(dirname "$debloatingobject")").apk" == "$(basename "$debloatingobject")" ]; then
+    mkdir -p "$(dirname "$debloatingobject")";
+    touch "$(dirname "$debloatingobject")/.replace" && log "DEBLOATER: Object directory debloated ($debloatobject)" || { log "ERROR: Could not create replace file for object $debloatobject"; return 1; }
+  elif [ -d "$debloatobject" ]; then
+    mkdir -p "$debloatingobject";
+    touch "$debloatingobject/.replace" && log "DEBLOATER: directory debloated ($debloatobject)" || { log "ERROR: Could not create replace file for directory $debloatobject"; return 1; }
+  else
+    mkdir -p "$(dirname "$debloatingobject")";
+    echo "# This is a dummy for debloating" > "$debloatingobject" && log "DEBLOATER: Object dummy debloated ($debloatobject)" || { log"ERROR: Could not create dummy file for $debloatobject"; return 1; }
+  fi;
+}
+
+shandle() {
+  for glob in /$sysroot/$1; do
+    target="$glob";
+    destination="$(echo "$target" | sed "s|^/$sysroot|$backupdir|")";
+    remove "$target" "$destination";
+  done;
+}
+
+srestore() {
+  for glob in /$backupdir/$1; do
+    target="$glob";
+    destination="$(echo "$target" | sed "s|^$backupdir|/$sysroot|")";
+    remove "$target" "$destination";
+  done;
+}
+
+mhandle() {
+  for glob in /$sysroot/$1; do
+    target="$glob";
+    destination="$(echo "$target" | sed "s|^/$sysroot|$root|")";
+    debloat "$target" "$destination";
+  done;
+}
+
+perm() {
+  uid="$1";
+  gid="$2";
+  dmod="$3";
+  fmod="$4";
+  dir="$5";
+  [ -d "$dir" ] || return 0;
+  chown -R $uid:$gid "$dir" || chown -R $uid.$gid "$dir";
+  find "$dir" -type d -exec chmod $dmod {} +;
+  find "$dir" -type f -exec chmod $fmod {} +;
+}
+
+perm_full() {
+  rootdir="$1";
+  for sdir in $(ls "$rootdir/system"); do
+    case "$sdir" in
+      vendor)
+        chown 0:0 "$rootdir/system/$sdir" || chown 0.0 "$rootdir/system/$sdir";
+        chmod 0755 "$rootdir/system/$sdir";
+        for vdir in $(ls "$rootdir/system/$sdir"); do
+          case "$vdir" in
+            bin|xbin)
+              perm 0 2000 0755 0777 "$rootdir/system/$sdir/$vdir";
+            ;;
+            *)
+              perm 0 0 0755 0644 "$rootdir/system/$sdir/$vdir";
+            ;;
+          esac;
+        done;
+      ;;
+      bin|xbin)
+        perm 0 2000 0755 0777 "$rootdir/system/$sdir";
+      ;;
+      *)
+        perm 0 0 0755 0644 "$rootdir/system/$sdir";
+      ;;
+    esac;
+  done;
+}
+
+mkdir -p "/dev/tmp";
+unzip -o "$zipfile" "debloat-list.txt" "default-debloat-script.sh" -d "/dev/tmp" || { log " "; log "ERROR: Could not extract default config"; }
+
+line="$(cat "$zipfile" | grep -n "^#MINDLIST$" | head -n1 | awk -F":" '{ print $1 }')";
+[ "$line" ] && cat "$zipfile" | tail -n +"$line" > "/dev/tmp/debloat-list.txt";
+for file in "$(dirname "$zipfile")/mindebloater.txt" "$backupdir/mindebloater.txt" /dev/tmp/debloat-list.txt /dev/tmp/default-debloat-list.txt; do
+  [ -f "$file" ] && {
+    stuff_debloat="$(cat "$file" | sed "s|#.*||g")";
+    ui_print " ";
+    ui_print "Using debloat list $file";
+    break;
+  }
+done;
+[ "$stuff_debloat" ] || { ui_print " "; ui_print "ERROR: No debloat list found"; exit 1; }
+
+for file in "$(dirname "$zipfile")/mindebloater.sh" "$backupdir/mindebloater.sh" /dev/tmp/default-debloat-script.sh; do
+  [ -f "$file" ] && {
+    cp "$file" /dev/tmp/debloat-script.sh;
+    chmod 755 /dev/tmp/debloat-script.sh;
+    ui_print " ";
+    ui_print "Using debloat script $file";
+    break;
+  }
+done;
+[ -f /dev/tmp/debloat-script.sh ] && script=true || { ui_print " "; ui_print "ERROR: No debloat script found"; }
+
+case $(basename "$zipfile") in
+  *restore*|*Restore*|*RESTORE*)
+    if [ "$magisk" == "yes" ]; then
+      ui_print " ";
+      ui_print "Running the script...";
+      $script && sh /dev/tmp/debloat-script.sh "prerestore" "$root" "$magisk";
+      ui_print " ";
+      ui_print "Bloating...";
+      rm -rf "$root" || log "ERROR: Could not delete Magisk root ($root)";
+      ui_print " ";
+      ui_print "Running the script...";
+      $script && sh /dev/tmp/debloat-script.sh "postrestore" "$root" "$magisk";
+    else
+      ui_print " ";
+      ui_print "Running the script...";
+      $script && sh /dev/tmp/debloat-script.sh "prerestore" "$root" "$magisk";
+      [ -d "$backupdir" ] || { ui_print " "; ui_print "ERROR: No backups present!"; exit 0; }
+      ui_print " ";
+      ui_print "Restoring backups...";
+      for thing in $stuff_debloat; do
+        [ "$thing" ] || continue;
+        srestore "$thing";
+      done;
+      rm -rf "$backupdir";
+      ui_print " ";
+      ui_print "Applying permissions...";
+      ui_print "Sit back and wait...";
+      perm_full "$root";
+      ui_print " ";
+      ui_print "Running the script...";
+      $script && sh /dev/tmp/debloat-script.sh "postrestore" "$root" "$magisk";
+    fi;
+  ;;
+  *)
+    ui_print " ";
+    ui_print "Debloating your system...";
+    if [ "$magisk" == "yes" ]; then
+      mkdir -p "$root";
+      ui_print " ";
+      ui_print "Running the script...";
+      $script && sh /dev/tmp/debloat-script.sh "predebloat" "$root" "$magisk";
+      ui_print " ";
+      ui_print "Debloating...";
+      for thing in $stuff_debloat; do
+        [ "$thing" ] || continue;
+        mhandle "$thing";
+      done;
+      echo "$modprop" > "$root/module.prop" || abort "Could not create module.prop in $root";
+      touch "$root/auto_mount" || abort "Could not create auto_mount in $root";
+      chcon -hR 'u:object_r:system_file:s0' "$root";
+      if $bootmode && [ "$modulesdir" == "/data/adb/modules_update" ]; then
+        modmnt="/data/adb/modules";
+        mkdir -p "$modmnt/$modname";
+        touch "$modmnt/$modname/update" || abort "Could not create update in $modmnt/$modname";
+        [ "$modprop" ] && { echo "$modprop" > "$modmnt/$modname/module.prop" || abort "Could not create module.prop in $modmnt/$modname"; }
+      fi;
+      ui_print " ";
+      ui_print "Applying permissions...";
+      ui_print "Sit back and wait...";
+      chown 0:0 "$root" "$root/system" "$root/module.prop" || chown 0.0 "$root" "$root/system" "$root/module.prop";
+      chmod 0755 "$root" "$root/system" "$root/module.prop";
+      perm_full "$root";
+      ui_print " ";
+      ui_print "Running the script...";
+      $script && sh /dev/tmp/debloat-script.sh "postdebloat" "$root" "$magisk";
+    else
+      ui_print " ";
+      ui_print "Running the script...";
+      $script && sh /dev/tmp/debloat-script.sh "predebloat" "$root" "$magisk";
+      ui_print " ";
+      ui_print "Debloating...";
+      for thing in $stuff_debloat; do
+        [ "$thing" ] || continue;
+        shandle "$thing";
+      done;
+      [ -d "$backupdir" ] && { perm 1023 1023 775 664 "$backupdir"; chcon -hR 'u:object_r:media_rw_data_file:s0' "$backupdir"; }
+      ui_print " ";
+      ui_print "Running the script...";
+      $script && sh /dev/tmp/debloat-script.sh "postdebloat" "$root" "$magisk";
+    fi;
+  ;;
+esac;
+
+rm -rf "/dev/tmp/debloat-list.txt" "/dev/tmp/default-debloat-list.txt" "/dev/tmp/default-debloat-script.sh";
+
+ui_print " ";
+ui_print "Unmounting...";
+$bootmode || { [ "$sysroot" ] && umount /$sysroot || umount /system; }
+
+sync;
+
+ui_print " ";
+ui_print "Done!";
+ui_print "Join us on Telegram: @NoGooLag";
+ui_print " ";
+exit 0;
