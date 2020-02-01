@@ -19,11 +19,11 @@ zipfile="$3";
 ps | grep zygote | grep -v grep >/dev/null && bootmode=true || bootmode=false;
 $bootmode || ps -A 2>/dev/null | grep zygote | grep -v grep >/dev/null && bootmode=true;
 
-$bootmode || exec 1>>$outfd;
+$bootmode || exec 1>>"$outfd";
 
 $bootmode || mount -o bind /dev/urandom /dev/random;
 
-$bootmode && ui_print() { echo "$1"; } || ui_print() { echo -e "ui_print $1\nui_print" >> $outfd; }
+if $bootmode; then ui_print() { echo "$1"; }; else ui_print() { echo -e "ui_print $1\nui_print" >> "$outfd"; }; fi;
 
 log() { ui_print "$1"; }
 
@@ -49,29 +49,30 @@ for bb in /magisk/.core/busybox /sbin/.core/busybox /sbin/.magisk/busybox; do
   [ -e "$bb" ] && magiskbb="$bb";
 done;
 [ "$magiskbb" ] && export PATH="$magiskbb:$PATH";
-[ -e "/system_root" ] && {
+if [ -e "/system_root" ]; then
   mount -o ro /system_root;
-  sysroot="system_root";
-} || {
+else
   mount -o ro /system;
-  [ -e "/system/system/build.prop" ] && sysroot="system";
-}
+fi;
+[ -e "/system/system/build.prop" ] && sysroot="system";
+[ -e "/system_root/system/build.prop" ] && sysroot="system_root";
+[ -f "/$sysroot/system/build.prop" ] || abort "Could not find a ROM in /$sysroot";
 
 ui_print " ";
 ui_print "Mounting...";
-if [ -e "/data/adb/magisk" -a "$forcemagisk" == "yes" ]; then
+if [ -e "/data/adb/magisk" ] && [ "$forcemagisk" = "yes" ]; then
   $bootmode && modulesdir="/data/adb/modules_update" || modulesdir="/data/adb/modules";
   root="$modulesdir/$modname";
   magisk=yes;
   log "Using $modulesdir";
 else
-  [ "$sysroot" ] && {
+  if [ "$sysroot" ]; then
     mount -o rw,remount /$sysroot;
     mount -o rw,remount /$sysroot /$sysroot;
-  } || {
+  else
     mount -o rw,remount /system;
     mount -o rw,remount /system /system;
-  }
+  fi;
   root="/$sysroot";
   magisk=no;
   log "Mounted /$sysroot/system RW";
@@ -85,40 +86,40 @@ remove() {
   removalobject="$1";
   backupobject="$2";
   if [ "$sdk" -lt 21 ]; then
-    [ "$(basename "$(dirname "$removalobject")").apk" == "$(basename "$removalobject")" ] && {
+    [ "$(basename "$(dirname "$removalobject")").apk" = "$(basename "$removalobject")" ] && {
       removalobject="$(dirname "$(dirname "$removalobject")")/$(basename "$removalobject")";
       backupobject="$(dirname "$(dirname "$backupobject")")/$(basename "$backupobject")";
     }
   fi;
-  [ "$(basename "$(dirname "$removalobject")").apk" == "$(basename "$removalobject")" ] && { removalobject="$(dirname "$removalobject")"; backupobject="$(dirname "$backupobject")"; }
+  [ "$(basename "$(dirname "$removalobject")").apk" = "$(basename "$removalobject")" ] && { removalobject="$(dirname "$removalobject")"; backupobject="$(dirname "$backupobject")"; }
   [ -e "$removalobject" ] || return 0;
   mkdir -p "$(dirname "$backupobject")";
   cp -rf "$removalobject" "$backupobject";
-  [ -e "$backupobject" ] && log "BACKUPER: Object backed up ($removalobject)" || log "ERROR: Could not backup ($removalobject)";
+  if [ -e "$backupobject" ]; then log "BACKUPER: Object backed up ($removalobject)"; else log "ERROR: Could not backup ($removalobject)"; fi;
   rm -rf "$removalobject" || { log "ERROR: Could not remove ($removalobject)"; return 1; }
-  [ -e "$removalobject" ] && { log "ERROR: Could not remove ($removalobject)"; return 1; } || log "REMOVER: Object removed ($removalobject)";
+  if [ -e "$removalobject" ]; then { log "ERROR: Could not remove ($removalobject)"; return 1; }; else log "REMOVER: Object removed ($removalobject)"; fi;
 }
 
 debloat() {
   debloatobject="$1";
   debloatingobject="$2";
   if [ "$sdk" -lt 21 ]; then
-    [ "$(basename "$(dirname "$debloatobject")").apk" == "$(basename "$debloatobject")" ] && {
+    [ "$(basename "$(dirname "$debloatobject")").apk" = "$(basename "$debloatobject")" ] && {
       debloatobject="$(dirname "$(dirname "$debloatobject")")/$(basename "$debloatobject")";
       debloatingobject="$(dirname "$(dirname "$debloatingobject")")/$(basename "$debloatingobject")";
     }
   fi;
-  [ "$(basename "$(dirname "$debloatobject")").apk" == "$(basename "$debloatobject")" ] && debloatobject="$(dirname "$debloatobject")";
+  [ "$(basename "$(dirname "$debloatobject")").apk" = "$(basename "$debloatobject")" ] && debloatobject="$(dirname "$debloatobject")";
   [ -e "$debloatobject" ] || return 0;
-  if [ "$(basename "$(dirname "$debloatingobject")").apk" == "$(basename "$debloatingobject")" ]; then
+  if [ "$(basename "$(dirname "$debloatingobject")").apk" = "$(basename "$debloatingobject")" ]; then
     mkdir -p "$(dirname "$debloatingobject")";
-    touch "$(dirname "$debloatingobject")/.replace" && log "DEBLOATER: Object directory debloated ($debloatobject)" || { log "ERROR: Could not create replace file for object $debloatobject"; return 1; }
+    if touch "$(dirname "$debloatingobject")/.replace"; then log "DEBLOATER: Object directory debloated ($debloatobject)"; else { log "ERROR: Could not create replace file for object $debloatobject"; return 1; }; fi;
   elif [ -d "$debloatobject" ]; then
     mkdir -p "$debloatingobject";
-    touch "$debloatingobject/.replace" && log "DEBLOATER: directory debloated ($debloatobject)" || { log "ERROR: Could not create replace file for directory $debloatobject"; return 1; }
+    if touch "$debloatingobject/.replace"; then log "DEBLOATER: directory debloated ($debloatobject)"; else { log "ERROR: Could not create replace file for directory $debloatobject"; return 1; }; fi;
   else
     mkdir -p "$(dirname "$debloatingobject")";
-    echo "# This is a dummy for debloating" > "$debloatingobject" && log "DEBLOATER: Object dummy debloated ($debloatobject)" || { log"ERROR: Could not create dummy file for $debloatobject"; return 1; }
+    if echo "# This is a dummy for debloating" > "$debloatingobject"; then log "DEBLOATER: Object dummy debloated ($debloatobject)"; else { log"ERROR: Could not create dummy file for $debloatobject"; return 1; }; fi;
   fi;
 }
 
@@ -153,9 +154,9 @@ perm() {
   fmod="$4";
   dir="$5";
   [ -d "$dir" ] || return 0;
-  chown -R $uid:$gid "$dir" || chown -R $uid.$gid "$dir";
-  find "$dir" -type d -exec chmod $dmod {} +;
-  find "$dir" -type f -exec chmod $fmod {} +;
+  chown -R "$uid:$gid" "$dir" || chown -R "$uid.$gid" "$dir";
+  find "$dir" -type d -exec chmod "$dmod" {} +;
+  find "$dir" -type f -exec chmod "$fmod" {} +;
 }
 
 perm_full() {
@@ -210,11 +211,11 @@ for file in "$(dirname "$zipfile")/mindebloater.sh" "$backupdir/mindebloater.sh"
     break;
   }
 done;
-[ -f /dev/tmp/debloat-script.sh ] && script=true || { ui_print " "; ui_print "ERROR: No debloat script found"; }
+if [ -f /dev/tmp/debloat-script.sh ]; then script=true; else { ui_print " "; ui_print "ERROR: No debloat script found"; }; fi;
 
 case $(basename "$zipfile") in
   *restore*|*Restore*|*RESTORE*)
-    if [ "$magisk" == "yes" ]; then
+    if [ "$magisk" = "yes" ]; then
       ui_print " ";
       ui_print "Running the script...";
       $script && sh /dev/tmp/debloat-script.sh "prerestore" "$root" "$magisk";
@@ -248,7 +249,7 @@ case $(basename "$zipfile") in
   *)
     ui_print " ";
     ui_print "Debloating your system...";
-    if [ "$magisk" == "yes" ]; then
+    if [ "$magisk" = "yes" ]; then
       mkdir -p "$root";
       ui_print " ";
       ui_print "Running the script...";
@@ -262,7 +263,7 @@ case $(basename "$zipfile") in
       echo "$modprop" > "$root/module.prop" || abort "Could not create module.prop in $root";
       touch "$root/auto_mount" || abort "Could not create auto_mount in $root";
       chcon -hR 'u:object_r:system_file:s0' "$root";
-      if $bootmode && [ "$modulesdir" == "/data/adb/modules_update" ]; then
+      if $bootmode && [ "$modulesdir" = "/data/adb/modules_update" ]; then
         modmnt="/data/adb/modules";
         mkdir -p "$modmnt/$modname";
         touch "$modmnt/$modname/update" || abort "Could not create update in $modmnt/$modname";
@@ -299,7 +300,7 @@ rm -rf "/dev/tmp/debloat-list.txt" "/dev/tmp/default-debloat-list.txt" "/dev/tmp
 
 ui_print " ";
 ui_print "Unmounting...";
-$bootmode || { [ "$sysroot" ] && umount /$sysroot || umount /system; }
+$bootmode || { if [ "$sysroot" ]; then umount /$sysroot; else umount /system; fi; }
 
 sync;
 

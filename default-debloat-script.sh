@@ -26,7 +26,7 @@ cleanup() {
     done;
     cleanup_packages="com.android.vending com.google.android.feedback com.google.android.gms com.google.android.gsf com.google.android.gsf.login com.mgoogle.android.gms";
     for app in $cleanup_packages; do
-      for file in /data/data/${app} /data/user/*/${app} /data/user_de/*/${app} /data/app/${app}-* /mnt/asec/${app}-* /data/media/0/Android/data/${app}; do
+      for file in /data/data/"${app}" /data/user/*/"${app}" /data/user_de/*/"${app}" /data/app/"${app}"-* /mnt/asec/"${app}"-* /data/media/0/Android/data/"${app}"; do
         [ -e "$file" ] && { log "SCRIPT: Removing $file"; rm -rf "$file"; }
       done;
     done;
