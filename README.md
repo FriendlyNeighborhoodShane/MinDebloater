@@ -4,7 +4,7 @@
 
 ### Links
 * [GitHub](https://github.com/FriendlyNeighborhoodShane/MinDebloater)
-* [Support](https://t.me/joinchat/FyFlS0X2D7f6YNvdxhEsfw)
+* [Support](https://t.me/microgsupport)
 ### Description
 this zip debloats your system partition (making backups) or pseudo-debloats as a Magisk module (if you uninstall the module, the debloated stuff will come back. It supports virtually all mobile architectures (arm/64, x86/64, mips/64) and fully supports ALL android versions. It can even uninstall itself from your device, just rename it and flash it again.
 
