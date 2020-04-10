@@ -26,11 +26,25 @@ $bootmode || ps -A 2>/dev/null | grep zygote | grep -v grep >/dev/null && bootmo
 
 $bootmode || exec 1>>"$outfd";
 
-$bootmode || mount -o bind /dev/urandom /dev/random;
-
 if $bootmode; then ui_print() { echo "$1"; }; else ui_print() { echo -e "ui_print $1\nui_print" >> "$outfd"; }; fi;
 
 log() { ui_print "$1"; }
+
+$bootmode || mount -o bind /dev/urandom /dev/random;
+
+abort() {
+  ui_print " ";
+  ui_print "!!! FATAL ERROR: $1";
+  ui_print " ";
+  ui_print "Stopping process...";
+  rm -rf "/dev/tmp/debloat-list.txt" "/dev/tmp/default-debloat-list.txt" "/dev/tmp/default-debloat-script.sh";
+  $bootmode || { if [ "$sysroot" ]; then umount "/$sysroot"; else umount "/system"; fi; }
+  sync;
+  ui_print " ";
+  ui_print "Process failed!";
+  ui_print " ";
+  exit 1;
+}
 
 ui_print "                                ";
 ui_print " ===================================";
@@ -39,8 +53,18 @@ ui_print " |       By ShaneTheAwesome        |";
 ui_print " ===================================";
 modname=MinDebloat;
 
-ui_print " ";
-ui_print "Mounting...";
+$bootmode || {
+  if [ -e "/system_root" ]; then
+    mount -o ro /system_root;
+  else
+    mount -o ro /system;
+  fi;
+  mount /data;
+}
+[ -e "/system/system/build.prop" ] && sysroot="system";
+[ -e "/system_root/system/build.prop" ] && sysroot="system_root";
+[ -f "/$sysroot/system/build.prop" ] || abort "Could not find a ROM in /$sysroot";
+
 case "$(basename "$zipfile")" in
   *magisk*|*Magisk*|*MAGISK*)
     forcemagisk=yes;
@@ -54,14 +78,6 @@ for bb in /magisk/.core/busybox /sbin/.core/busybox /sbin/.magisk/busybox; do
   [ -e "$bb" ] && magiskbb="$bb";
 done;
 [ "$magiskbb" ] && export PATH="$magiskbb:$PATH";
-if [ -e "/system_root" ]; then
-  mount -o ro /system_root;
-else
-  mount -o ro /system;
-fi;
-[ -e "/system/system/build.prop" ] && sysroot="system";
-[ -e "/system_root/system/build.prop" ] && sysroot="system_root";
-[ -f "/$sysroot/system/build.prop" ] || abort "Could not find a ROM in /$sysroot";
 
 ui_print " ";
 ui_print "Mounting...";
@@ -70,6 +86,10 @@ if [ -e "/data/adb/magisk" ] && [ "$forcemagisk" = "yes" ]; then
   root="$modulesdir/$modname";
   magisk=yes;
   log "Using $modulesdir";
+  [ -d "$modulesdir" ] || {
+    mkdir -p "$modulesdir";
+    perm 0 0 0755 0644 "$modulesdir";
+  }
 else
   if [ "$sysroot" ]; then
     mount -o rw,remount /$sysroot;
@@ -116,15 +136,14 @@ debloat() {
   fi;
   [ "$(basename "$(dirname "$debloatobject")").apk" = "$(basename "$debloatobject")" ] && debloatobject="$(dirname "$debloatobject")";
   [ -e "$debloatobject" ] || return 0;
+  mkdir -p "$(dirname "$debloatingobject")";
   if [ "$(basename "$(dirname "$debloatingobject")").apk" = "$(basename "$debloatingobject")" ]; then
-    mkdir -p "$(dirname "$debloatingobject")";
     if touch "$(dirname "$debloatingobject")/.replace"; then log "DEBLOATER: Object directory debloated ($debloatobject)"; else { log "ERROR: Could not create replace file for object $debloatobject"; return 1; }; fi;
   elif [ -d "$debloatobject" ]; then
     mkdir -p "$debloatingobject";
     if touch "$debloatingobject/.replace"; then log "DEBLOATER: directory debloated ($debloatobject)"; else { log "ERROR: Could not create replace file for directory $debloatobject"; return 1; }; fi;
   else
-    mkdir -p "$(dirname "$debloatingobject")";
-    if echo "# This is a dummy for debloating" > "$debloatingobject"; then log "DEBLOATER: Object dummy debloated ($debloatobject)"; else { log"ERROR: Could not create dummy file for $debloatobject"; return 1; }; fi;
+    if echo "# This is a dummy for debloating" > "$debloatingobject"; then log "DEBLOATER: Object dummy debloated ($debloatobject)"; else { log "ERROR: Could not create dummy file for $debloatobject"; return 1; }; fi;
   fi;
 }
 
@@ -305,7 +324,7 @@ rm -rf "/dev/tmp/debloat-list.txt" "/dev/tmp/default-debloat-list.txt" "/dev/tmp
 
 ui_print " ";
 ui_print "Unmounting...";
-$bootmode || { if [ "$sysroot" ]; then umount /$sysroot; else umount /system; fi; }
+$bootmode || { if [ "$sysroot" ]; then umount "/$sysroot"; else umount /system; fi; }
 
 sync;
 
