@@ -32,6 +32,19 @@ log() { ui_print "$1"; }
 
 $bootmode || mount -o bind /dev/urandom /dev/random;
 
+select_word() {
+  select_term="$1";
+  while read -r select_line; do
+    select_current=0;
+    select_found="";
+    for select_each in $select_line; do
+      select_current="$(( $select_current + 1 ))";
+      [ "$select_current" = "$select_term" ] && { select_found="yes"; break; }
+    done;
+    [ "$select_found" = "yes" ] && echo "$select_each";
+  done;
+}
+
 abort() {
   ui_print " ";
   ui_print "!!! FATAL ERROR: $1";
@@ -100,7 +113,7 @@ else
   log "Mounted /$sysroot/system RW";
 fi;
 
-sdk="$(grep ro.build.version.sdk "/$sysroot/system/build.prop" | head -n1 | awk '{ print $1 }' | cut -d= -f2)";
+sdk="$(grep ro.build.version.sdk "/$sysroot/system/build.prop" | head -n1 | select_word 1 | cut -d= -f2)";
 
 backupdir="/data/media/0/$modname";
 
@@ -211,7 +224,7 @@ perm_full() {
 mkdir -p "/dev/tmp";
 unzip -o "$zipfile" "debloat-list.txt" "default-debloat-script.sh" -d "/dev/tmp" || { log " "; log "ERROR: Could not extract default config"; }
 
-line="$(cat "$zipfile" | grep -n "^#MINDLIST$" | head -n1 | awk -F":" '{ print $1 }')";
+line="$(cat "$zipfile" | grep -n "^#MINDLIST$" | head -n1 | sed 's|:| |g' | select_word 1)";
 [ "$line" ] && cat "$zipfile" | tail -n +"$line" > "/dev/tmp/debloat-list.txt";
 for file in "$(dirname "$zipfile")/mindebloater.txt" "$backupdir/mindebloater.txt" /dev/tmp/debloat-list.txt /dev/tmp/default-debloat-list.txt; do
   [ -f "$file" ] && {
