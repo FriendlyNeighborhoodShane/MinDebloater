@@ -4,6 +4,7 @@
 
 ### Links
 * [GitHub](https://github.com/FriendlyNeighborhoodShane/MinDebloater)
+* [GitLab](https://gitlab.com/FriendlyNeighborhoodShane/MinDebloater)
 * [Support](https://t.me/microgsupport)
 
 ### What is this?
