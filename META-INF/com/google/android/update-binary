@@ -26,7 +26,7 @@ $bootmode || ps -A 2>/dev/null | grep zygote | grep -v grep >/dev/null && bootmo
 
 $bootmode || exec 1>>"$outfd";
 
-if $bootmode; then ui_print() { echo "$1"; }; else ui_print() { echo -e "ui_print $1\nui_print" >> "$outfd"; }; fi;
+if $bootmode; then ui_print() { echo "$1"; }; else ui_print() { echo "ui_print $1" >> "$outfd"; echo "ui_print" >> "$outfd"; }; fi;
 
 log() { ui_print "$1"; }
 
@@ -38,7 +38,7 @@ select_word() {
     select_current=0;
     select_found="";
     for select_each in $select_line; do
-      select_current="$(( $select_current + 1 ))";
+      select_current="$(( select_current + 1 ))";
       [ "$select_current" = "$select_term" ] && { select_found="yes"; break; }
     done;
     [ "$select_found" = "yes" ] && echo "$select_each";
@@ -239,7 +239,7 @@ done;
 for file in "$(dirname "$zipfile")/mindebloater.sh" "$backupdir/mindebloater.sh" /dev/tmp/default-debloat-script.sh; do
   [ -f "$file" ] && {
     cp "$file" /dev/tmp/debloat-script.sh;
-    chmod 755 /dev/tmp/debloat-script.sh;
+    chmod +x /dev/tmp/debloat-script.sh;
     ui_print " ";
     ui_print "Using debloat script $file";
     break;
