@@ -26,7 +26,16 @@ $bootmode || ps -A 2>/dev/null | grep zygote | grep -v grep >/dev/null && bootmo
 
 $bootmode || exec 1>>"$outfd";
 
-if $bootmode; then ui_print() { echo "$1"; }; else ui_print() { echo "ui_print $1" >> "$outfd"; echo "ui_print" >> "$outfd"; }; fi;
+if $bootmode; then
+  ui_print() {
+    echo "$1";
+  };
+else
+  ui_print() {
+    echo "ui_print $1" >> "$outfd";
+    echo "ui_print" >> "$outfd";
+  };
+fi;
 
 log() { ui_print "$1"; }
 
@@ -51,7 +60,9 @@ abort() {
   ui_print " ";
   ui_print "Stopping process...";
   rm -rf "/dev/tmp/debloat-list.txt" "/dev/tmp/default-debloat-list.txt" "/dev/tmp/default-debloat-script.sh";
-  $bootmode || { if [ "$sysroot" ]; then umount "/$sysroot"; else umount "/system"; fi; }
+  $bootmode || {
+    if [ "$sysroot" ]; then umount "/$sysroot"; else umount "/system"; fi;
+  }
   sync;
   ui_print " ";
   ui_print "Process failed!";
@@ -128,13 +139,28 @@ remove() {
       backupobject="$(dirname "$(dirname "$backupobject")")/$(basename "$backupobject")";
     }
   fi;
-  [ "$(basename "$(dirname "$removalobject")").apk" = "$(basename "$removalobject")" ] && { removalobject="$(dirname "$removalobject")"; backupobject="$(dirname "$backupobject")"; }
+  [ "$(basename "$(dirname "$removalobject")").apk" = "$(basename "$removalobject")" ] && {
+    removalobject="$(dirname "$removalobject")";
+    backupobject="$(dirname "$backupobject")";
+  }
   [ -e "$removalobject" ] || return 0;
   mkdir -p "$(dirname "$backupobject")";
   cp -rf "$removalobject" "$backupobject";
-  if [ -e "$backupobject" ]; then log "BACKUPER: Object backed up ($removalobject)"; else log "ERROR: Could not backup ($removalobject)"; fi;
-  rm -rf "$removalobject" || { log "ERROR: Could not remove ($removalobject)"; return 1; }
-  if [ -e "$removalobject" ]; then { log "ERROR: Could not remove ($removalobject)"; return 1; }; else log "REMOVER: Object removed ($removalobject)"; fi;
+  if [ -e "$backupobject" ]; then
+    log "BACKUPER: Object backed up ($removalobject)";
+  else
+    log "ERROR: Could not backup ($removalobject)";
+  fi;
+  rm -rf "$removalobject" || {
+    log "ERROR: Could not remove ($removalobject)";
+    return 1;
+  }
+  if [ -e "$removalobject" ]; then
+    log "ERROR: Could not remove ($removalobject)";
+    return 1;
+  else
+    log "REMOVER: Object removed ($removalobject)";
+  fi;
 }
 
 debloat() {
@@ -150,12 +176,27 @@ debloat() {
   [ -e "$debloatobject" ] || return 0;
   mkdir -p "$(dirname "$debloatingobject")";
   if [ "$(basename "$(dirname "$debloatingobject")").apk" = "$(basename "$debloatingobject")" ]; then
-    if touch "$(dirname "$debloatingobject")/.replace"; then log "DEBLOATER: Object directory debloated ($debloatobject)"; else { log "ERROR: Could not create replace file for object $debloatobject"; return 1; }; fi;
+    if touch "$(dirname "$debloatingobject")/.replace"; then
+      log "DEBLOATER: Object directory debloated ($debloatobject)";
+    else
+      log "ERROR: Could not create replace file for object $debloatobject";
+      return 1;
+    fi;
   elif [ -d "$debloatobject" ]; then
     mkdir -p "$debloatingobject";
-    if touch "$debloatingobject/.replace"; then log "DEBLOATER: directory debloated ($debloatobject)"; else { log "ERROR: Could not create replace file for directory $debloatobject"; return 1; }; fi;
+    if touch "$debloatingobject/.replace"; then
+      log "DEBLOATER: directory debloated ($debloatobject)";
+    else
+      log "ERROR: Could not create replace file for directory $debloatobject";
+      return 1;
+    fi;
   else
-    if echo "# This is a dummy for debloating" > "$debloatingobject"; then log "DEBLOATER: Object dummy debloated ($debloatobject)"; else { log "ERROR: Could not create dummy file for $debloatobject"; return 1; }; fi;
+    if echo "# This is a dummy for debloating" > "$debloatingobject"; then
+      log "DEBLOATER: Object dummy debloated ($debloatobject)";
+    else
+      log "ERROR: Could not create dummy file for $debloatobject";
+      return 1;
+    fi;
   fi;
 }
 
@@ -224,7 +265,10 @@ perm_full() {
 }
 
 mkdir -p "/dev/tmp";
-unzip -o "$zipfile" "debloat-list.txt" "default-debloat-script.sh" -d "/dev/tmp" || { log " "; log "ERROR: Could not extract default config"; }
+unzip -o "$zipfile" "debloat-list.txt" "default-debloat-script.sh" -d "/dev/tmp" || {
+  log " ";
+  log "ERROR: Could not extract default config";
+}
 
 line="$(cat "$zipfile" | grep -n "^#MINDLIST$" | head -n1 | sed 's|:| |g' | select_word 1)";
 [ "$line" ] && cat "$zipfile" | tail -n +"$line" > "/dev/tmp/debloat-list.txt";
@@ -236,7 +280,11 @@ for file in "$(dirname "$zipfile")/mindebloater.txt" "$backupdir/mindebloater.tx
     break;
   }
 done;
-[ "$stuff_debloat" ] || { ui_print " "; ui_print "ERROR: No debloat list found"; exit 1; }
+[ "$stuff_debloat" ] || {
+  ui_print " ";
+  ui_print "ERROR: No debloat list found";
+  exit 1;
+}
 
 for file in "$(dirname "$zipfile")/mindebloater.sh" "$backupdir/mindebloater.sh" /dev/tmp/default-debloat-script.sh; do
   [ -f "$file" ] && {
@@ -247,7 +295,13 @@ for file in "$(dirname "$zipfile")/mindebloater.sh" "$backupdir/mindebloater.sh"
     break;
   }
 done;
-if [ -f /dev/tmp/debloat-script.sh ]; then script=true; else { ui_print " "; ui_print "ERROR: No debloat script found"; }; fi;
+if [ -f /dev/tmp/debloat-script.sh ]; then
+  script=true;
+else
+  script=false;
+  ui_print " ";
+  ui_print "ERROR: No debloat script found";
+fi;
 
 case $(basename "$zipfile") in
   *restore*|*Restore*|*RESTORE*)
@@ -265,7 +319,10 @@ case $(basename "$zipfile") in
       ui_print " ";
       ui_print "Running the script...";
       $script && sh /dev/tmp/debloat-script.sh "prerestore" "$root" "$magisk";
-      [ -d "$backupdir" ] || { ui_print " "; ui_print "ERROR: No backups present!"; exit 0; }
+      [ -d "$backupdir" ] || {
+        ui_print " "; ui_print "ERROR: No backups present!";
+        exit 0;
+      }
       ui_print " ";
       ui_print "Restoring backups...";
       for thing in $stuff_debloat; do
@@ -303,7 +360,9 @@ case $(basename "$zipfile") in
         modmnt="/data/adb/modules";
         mkdir -p "$modmnt/$modname";
         touch "$modmnt/$modname/update" || abort "Could not create update in $modmnt/$modname";
-        [ "$modprop" ] && { echo "$modprop" > "$modmnt/$modname/module.prop" || abort "Could not create module.prop in $modmnt/$modname"; }
+        [ "$modprop" ] && {
+          echo "$modprop" > "$modmnt/$modname/module.prop" || abort "Could not create module.prop in $modmnt/$modname";
+        }
       fi;
       ui_print " ";
       ui_print "Applying permissions...";
@@ -324,7 +383,10 @@ case $(basename "$zipfile") in
         [ "$thing" ] || continue;
         shandle "$thing";
       done;
-      [ -d "$backupdir" ] && { perm 1023 1023 775 664 "$backupdir"; chcon -hR 'u:object_r:media_rw_data_file:s0' "$backupdir"; }
+      [ -d "$backupdir" ] && {
+        perm 1023 1023 775 664 "$backupdir";
+        chcon -hR 'u:object_r:media_rw_data_file:s0' "$backupdir";
+      }
       ui_print " ";
       ui_print "Running the script...";
       $script && sh /dev/tmp/debloat-script.sh "postdebloat" "$root" "$magisk";
@@ -336,7 +398,13 @@ rm -rf "/dev/tmp/debloat-list.txt" "/dev/tmp/default-debloat-list.txt" "/dev/tmp
 
 ui_print " ";
 ui_print "Unmounting...";
-$bootmode || { if [ "$sysroot" ]; then umount "/$sysroot"; else umount /system; fi; }
+$bootmode || {
+  if [ "$sysroot" ]; then
+    umount "/$sysroot";
+  else
+    umount /system;
+  fi;
+}
 
 sync;
 
