@@ -203,7 +203,7 @@ debloat() {
 shandle() {
   for glob in /$sysroot/$1; do
     target="$glob";
-    destination="$(echo "$target" | sed "s|^/$sysroot|$backupdir|")";
+    destination="$backupdir/${target#/$sysroot/}";
     remove "$target" "$destination";
   done;
 }
@@ -211,7 +211,7 @@ shandle() {
 srestore() {
   for glob in /$backupdir/$1; do
     target="$glob";
-    destination="$(echo "$target" | sed "s|^$backupdir|/$sysroot|")";
+    destination="/$sysroot/${target#/$backupdir/}";
     remove "$target" "$destination";
   done;
 }
@@ -219,7 +219,7 @@ srestore() {
 mhandle() {
   for glob in /$sysroot/$1; do
     target="$glob";
-    destination="$(echo "$target" | sed "s|^/$sysroot|$root|")";
+    destination="$root/${target#/$sysroot/}";
     debloat "$target" "$destination";
   done;
 }
