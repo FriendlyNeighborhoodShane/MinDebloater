@@ -13,7 +13,7 @@ version=$(date)
 versionCode=$(date +%Y%m%d)
 author=FriendlyNeighborhoodShane
 description=A systemless debloater that debloats everything proprietary from your device
-support=https://t.me/joinchat/FyFlS0X2D7f6YNvdxhEsfw
+support=
 donate=
 minMagisk=1530
 ";
@@ -410,6 +410,5 @@ sync;
 
 ui_print " ";
 ui_print "Done!";
-ui_print "Join us on Telegram: @NoGooLag";
 ui_print " ";
 exit 0;
