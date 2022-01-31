@@ -203,15 +203,7 @@ debloat() {
 shandle() {
   for glob in /$sysroot/$1; do
     target="$glob";
-    destination="$backupdir/${target#/$sysroot/}";
-    remove "$target" "$destination";
-  done;
-}
-
-srestore() {
-  for glob in /$backupdir/$1; do
-    target="$glob";
-    destination="/$sysroot/${target#/$backupdir/}";
+    destination="/dev/tmp/backup/${target#/$sysroot/}";
     remove "$target" "$destination";
   done;
 }
@@ -325,11 +317,11 @@ case $(basename "$zipfile") in
       }
       ui_print " ";
       ui_print "Restoring backups...";
-      for thing in $stuff_debloat; do
-        [ "$thing" ] || continue;
-        srestore "$thing";
-      done;
-      rm -rf "$backupdir";
+      (
+        cd "$root";
+        tar x -vf "$backupdir/bloat.tar";
+      )
+      rm -rf "$backupdir/bloat.tar";
       ui_print " ";
       ui_print "Applying permissions...";
       ui_print "Sit back and wait...";
@@ -383,6 +375,10 @@ case $(basename "$zipfile") in
         [ "$thing" ] || continue;
         shandle "$thing";
       done;
+      (
+        cd "/dev/tmp/backup";
+        tar c -vf "$backupdir/bloat.tar" .;
+      )
       [ -d "$backupdir" ] && {
         perm 1023 1023 775 664 "$backupdir";
         chcon -hR 'u:object_r:media_rw_data_file:s0' "$backupdir";
@@ -394,7 +390,7 @@ case $(basename "$zipfile") in
   ;;
 esac;
 
-rm -rf "/dev/tmp/debloat-list.txt" "/dev/tmp/default-debloat-list.txt" "/dev/tmp/default-debloat-script.sh";
+rm -rf "/dev/tmp/debloat-list.txt" "/dev/tmp/default-debloat-list.txt" "/dev/tmp/default-debloat-script.sh" "/dev/tmp/backup";
 
 ui_print " ";
 ui_print "Unmounting...";
