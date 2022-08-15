@@ -136,7 +136,7 @@ else
   log "Mounted /$sysroot/system RW";
 fi;
 
-sdk="$(grep ro.build.version.sdk "/$sysroot/system/build.prop" | head -n1 | select_word 1 | cut -d= -f2)";
+sdk="$(grep "ro.build.version.sdk=" "/$sysroot/system/build.prop" | head -n1 | select_word 1 | cut -d= -f2)";
 
 backupdir="/data/media/0/$modname";
 
