@@ -54,16 +54,20 @@ select_word() {
   done;
 }
 
-abort() {
-  ui_print " ";
-  ui_print "!!! FATAL ERROR: $1";
-  ui_print " ";
-  ui_print "Stopping process...";
+cleanup() {
   rm -rf "/dev/tmp/debloat-list.txt" "/dev/tmp/default-debloat-list.txt" "/dev/tmp/default-debloat-script.sh";
   $bootmode || {
     if [ "$sysroot" ]; then umount "/$sysroot"; else umount "/system"; fi;
   }
   sync;
+}
+
+abort() {
+  ui_print " ";
+  ui_print "!!! FATAL ERROR: $1";
+  ui_print " ";
+  ui_print "Stopping process...";
+  cleanup;
   ui_print " ";
   ui_print "Process failed!";
   ui_print " ";
@@ -394,15 +398,7 @@ rm -rf "/dev/tmp/debloat-list.txt" "/dev/tmp/default-debloat-list.txt" "/dev/tmp
 
 ui_print " ";
 ui_print "Unmounting...";
-$bootmode || {
-  if [ "$sysroot" ]; then
-    umount "/$sysroot";
-  else
-    umount /system;
-  fi;
-}
-
-sync;
+cleanup;
 
 ui_print " ";
 ui_print "Done!";
