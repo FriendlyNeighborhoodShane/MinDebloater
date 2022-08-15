@@ -88,8 +88,8 @@ $bootmode || {
 [ -e "/mnt/system/system/build.prop" ] && sysroot="mnt/system";
 [ -f "/$sysroot/system/build.prop" ] || abort "Could not find a ROM in /$sysroot";
 
-case "$(basename "$zipfile")" in
-  *magisk*|*Magisk*|*MAGISK*)
+case "$(basename "$zipfile" | tr 'A-Z' 'a-z')" in
+  *magisk*)
     forcemagisk=yes;
     ui_print " ";
     ui_print "WARNING: Forcing a Magisk action!";
@@ -295,8 +295,8 @@ else
   ui_print "ERROR: No debloat script found";
 fi;
 
-case $(basename "$zipfile") in
-  *restore*|*Restore*|*RESTORE*)
+case $(basename "$zipfile" | tr 'A-Z' 'a-z') in
+  *restore*)
     if [ "$magisk" = "yes" ]; then
       ui_print " ";
       ui_print "Running the script...";
